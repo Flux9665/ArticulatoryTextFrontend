@@ -1,6 +1,6 @@
 # PreprocesingForTTS
 
-Preprocessing utillity for text and audio to be used in Text-to-Speech. Can transform text into a phoneme ID tensor with prosodic cues, can clean and normalize a wav, can produce an MFCC spectrogram from a wave.
+Preprocessing utillity for text and audio to be used in Text-to-Speech. Can transform text into a phoneme ID tensor with prosodic cues, can clean and normalize a wav, can produce an MFCC-bank spectrogram from a wave.
 
 # Installation
 
@@ -14,3 +14,6 @@ _python -m spacy download de_core_news_sm_
 
 - To install torchaudio you have to specify the host channel, which is pytorch. Download may be very slow due to their hosting.  
 _conda install -c pytorch torchaudio_
+
+- Installing polyglot under Windows is a pain, but possible. After installing, you need to download the model used there  
+_python -m polyglot download morph2.en morph2.de_

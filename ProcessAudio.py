@@ -14,7 +14,7 @@ from torchaudio.transforms import Vad as VoiceActivityDetection
 class AudioPreprocessor:
     def __init__(self, sr):
         self.sr = sr
-        self.vad = VoiceActivityDetection(sample_rate=sr)  # TODO The settings need tweaking
+        self.vad = VoiceActivityDetection(sample_rate=sr)
 
     def cut_silence_from_beginning(self, np):
         """
@@ -92,13 +92,13 @@ class AudioPreprocessor:
         audio = self.normalize_loudness(audio)  # and once to make sure the final result retained scale
         return audio
 
-    def to_mfcc(self, np):
+    def to_mfcc_bank(self, np, buckets=80):
         """
         outputs a spectrogram as tensor for a
         given array
         """
         normalized_audio = self.process_audio(np)
-        return audio_to_mfcc_tensor(normalized_audio, self.sr)
+        return audio_to_banked_mfcc_tensor(normalized_audio, self.sr, buckets=80)
 
 
 def read(path):
@@ -110,9 +110,9 @@ def write(path, audio, sr):
     sf.write(path, audio, sr)
 
 
-def audio_to_mfcc_tensor(audio, sr):
+def audio_to_banked_mfcc_tensor(audio, sr, buckets=80):
     audio_unsqueezed = torch.from_numpy(audio).unsqueeze(0)
-    filter_bank = fbank(audio_unsqueezed, sample_frequency=sr, num_mel_bins=80)
+    filter_bank = fbank(audio_unsqueezed, sample_frequency=sr, num_mel_bins=buckets)
     pitch = torch.zeros(filter_bank.shape[0], 3)
     speech_in_features = torch.cat([filter_bank, pitch], 1).numpy()
     return speech_in_features
