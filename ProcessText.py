@@ -4,18 +4,15 @@ import phonemizer
 import spacy
 import torch
 from cleantext import clean
-from num2words import num2words
-from polyglot.text import Word
 
 
 class TextFrontend:
-    def __init__(self, language, use_shallow_pos=True, use_morphology=True):
+    def __init__(self, language, use_shallow_pos=True):
         """
         Mostly loading the right spacy
         models and preparing ID lookups
         """
         self.use_shallow_pos = use_shallow_pos
-        self.use_morphology = use_morphology
 
         if language == "en":
             self.clean_lang = "en"
@@ -51,62 +48,29 @@ class TextFrontend:
         """
         applies the entire pipeline to a text
         """
+        # tokenize
         utt = self.tokenizer(text)
 
+        # clean emojis etc
         cleaned_tokens = []
         for index, token in enumerate(utt):
-            if str(token).replace(".", "").replace(",", "").isnumeric():
-                to = "cardinal"
-                if self.clean_lang == "en":
-                    num = num2words(float(str(token).replace(",", "")), lang=self.clean_lang, to=to)
-                elif self.clean_lang == "de":
-                    num = num2words(float(str(token).replace(".", "")), lang=self.clean_lang, to=to)
-                if len(utt) > index + 1:
-                    if str(utt[index + 1]) == "$" or str(utt[index + 1]) == "€":
-                        num = ""
-                        if self.clean_lang == "en":
-                            for el in str(token).split("."):
-                                num += num2words(float(el), lang=self.clean_lang, to=to) + " "
-                        elif self.clean_lang == "de":
-                            for el in str(token).split(","):
-                                num += num2words(float(el), lang=self.clean_lang, to=to) + " "
-                elif len(str(token)) == 4 and str(token).isnumeric():
-                    to = "year"
-                cleaned_tokens.append(clean(num.rstrip(" "),
-                                            fix_unicode=True,
-                                            to_ascii=True, lower=False,
-                                            lang=self.clean_lang))
-            else:
-                cleaned_tokens.append(clean(token, fix_unicode=True, to_ascii=True, lower=False, lang=self.clean_lang))
+            cleaned_tokens.append(clean(token, fix_unicode=True, to_ascii=True, lower=False, lang=self.clean_lang))
         if view:
             print("Cleaned Tokens: \n{}\n".format(cleaned_tokens))
 
+        # phonemize
         phonemized_tokens = []
-        if view:
-            morphemes = []
         for cleaned_token in cleaned_tokens:
-            if self.use_morphology:
-                phonemized_token = ""
-                for morpheme in Word(cleaned_token, language=self.clean_lang).morphemes:
-                    phonemized_token += phonemizer.phonemize(morpheme, backend="espeak", language=self.g2p_lang,
-                                                             preserve_punctuation=True, strip=True,
-                                                             with_stress=True)[0]
-                    phonemized_token += "|"
-                    if view:
-                        morphemes.append(morpheme)
-                phonemized_tokens.append(phonemized_token.rstrip("|"))
-
-            else:
-                phonemized_tokens.append(phonemizer.phonemize(cleaned_token, backend="espeak", language=self.g2p_lang,
-                                                              preserve_punctuation=True, strip=True, with_stress=True))
-
+            phonemized_tokens.append(phonemizer.phonemize(cleaned_token, backend="espeak", language=self.g2p_lang,
+                                                          preserve_punctuation=True, strip=True, with_stress=True))
         if view:
-            print("Morphemes: \n{}\n".format(morphemes))
+            print("Phonemes: \n{}\n".format(phonemized_tokens))
 
         tensors = []
         phones_vector = []
         tags_vector = []
 
+        # get POS and generate tensors
         if self.use_shallow_pos:
             utt = self.tagger(utt)
         for index, phonemized_token in enumerate(phonemized_tokens):
@@ -123,15 +87,13 @@ class TextFrontend:
             for el in tags_vector:
                 tags_numeric_vector.append(self.tag_id_lookup[el])
             tensors.append(torch.tensor(tags_numeric_vector))
+        if view and self.use_shallow_pos:
+            tags = []
+            for el in utt:
+                tags.append(el.tag_)
+            print("POS Tags (internally simplified to content, function and other): \n{}\n".format(tags))
 
-        if view:
-            print("Phonemes (optionally with morpheme boundaries): \n{}\n".format(phonemized_tokens))
-            if self.use_shallow_pos:
-                tags = []
-                for el in utt:
-                    tags.append(el.tag_)
-                print("POS Tags (internally simplified to content, function, other): \n{}\n".format(tags))
-
+        # combine tensors and return
         return torch.stack(tensors, 0)
 
 
