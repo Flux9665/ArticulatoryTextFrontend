@@ -4,7 +4,9 @@ import phonemizer
 import spacy
 import torch
 from cleantext import clean
+from num2words import num2words
 from polyglot.text import Word
+
 
 class TextFrontend:
     def __init__(self, language, use_shallow_pos=True, use_morphology=True):
@@ -53,32 +55,35 @@ class TextFrontend:
 
         cleaned_tokens = []
         for token in utt:
+            if str(token).replace(".", "").replace(",", "").isnumeric():
+                cleaned_tokens.append(
+                    clean(num2words(str(token), lang=self.clean_lang), fix_unicode=True, to_ascii=True, lower=False,
+                          lang=self.clean_lang))
             cleaned_tokens.append(clean(token, fix_unicode=True, to_ascii=True, lower=False, lang=self.clean_lang))
         if view:
-            print(cleaned_tokens)
+            print("Cleaned Tokens: \n{}\n".format(cleaned_tokens))
 
         phonemized_tokens = []
+        if view:
+            morphemes = []
         for cleaned_token in cleaned_tokens:
             if self.use_morphology:
-                if view:
-                    morphemes = []
                 phonemized_token = ""
                 for morpheme in Word(cleaned_token, language=self.clean_lang).morphemes:
                     phonemized_token += phonemizer.phonemize(morpheme, backend="espeak", language=self.g2p_lang,
-                                                              preserve_punctuation=True, strip=True,
-                                                              with_stress=True)
+                                                             preserve_punctuation=True, strip=True,
+                                                             with_stress=True)[0]
                     phonemized_token += "|"
                     if view:
                         morphemes.append(morpheme)
                 phonemized_tokens.append(phonemized_token.rstrip("|"))
 
-
             else:
                 phonemized_tokens.append(phonemizer.phonemize(cleaned_token, backend="espeak", language=self.g2p_lang,
                                                               preserve_punctuation=True, strip=True, with_stress=True))
 
-            if view:
-                print(morphemes)
+        if view:
+            print("Morphemes: \n{}\n".format(morphemes))
 
         tensors = []
         phones_vector = []
@@ -102,12 +107,12 @@ class TextFrontend:
             tensors.append(torch.tensor(tags_numeric_vector))
 
         if view:
-            print(phonemized_tokens)
+            print("Phonemes (optionally with morpheme boundaries): \n{}\n".format(phonemized_tokens))
             if self.use_shallow_pos:
                 tags = []
                 for el in utt:
                     tags.append(el.tag_)
-                print(tags)
+                print("POS Tags (internally simplified to content, function, other): \n{}\n".format(tags))
 
         return torch.stack(tensors, 0)
 

@@ -8,3 +8,5 @@ spacy
 phonemizer
 clean-text
 unidecode
+librosa
+num2words
