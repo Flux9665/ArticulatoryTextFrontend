@@ -54,16 +54,24 @@ class TextFrontend:
         utt = self.tokenizer(text)
 
         cleaned_tokens = []
-        for token in utt:
+        for index, token in enumerate(utt):
             if str(token).replace(".", "").replace(",", "").isnumeric():
+                to = "cardinal"
+                if len(utt) > index + 1:
+                    if utt[index + 1] == "$" or utt[index + 1] == "€":
+                        to = "currency"
+                    elif len(str(token)) == 4 and str(token).isnumeric():
+                        to = "ordinal"
                 if self.clean_lang == "en":
                     cleaned_tokens.append(
-                        clean(num2words(float(str(token).replace(",", "")), lang=self.clean_lang), fix_unicode=True,
+                        clean(num2words(float(str(token).replace(",", "")), lang=self.clean_lang, to=to),
+                              fix_unicode=True,
                               to_ascii=True, lower=False,
                               lang=self.clean_lang))
                 elif self.clean_lang == "de":
                     cleaned_tokens.append(
-                        clean(num2words(float(str(token).replace(".", "")), lang=self.clean_lang), fix_unicode=True,
+                        clean(num2words(float(str(token).replace(".", "")), lang=self.clean_lang, to=to),
+                              fix_unicode=True,
                               to_ascii=True, lower=False,
                               lang=self.clean_lang))
                 else:
@@ -71,7 +79,8 @@ class TextFrontend:
                         clean(num2words(float(str(token).replace(",", "")), lang=self.clean_lang), fix_unicode=True,
                               to_ascii=True, lower=False,
                               lang=self.clean_lang))
-            cleaned_tokens.append(clean(token, fix_unicode=True, to_ascii=True, lower=False, lang=self.clean_lang))
+            else:
+                cleaned_tokens.append(clean(token, fix_unicode=True, to_ascii=True, lower=False, lang=self.clean_lang))
         if view:
             print("Cleaned Tokens: \n{}\n".format(cleaned_tokens))
 
