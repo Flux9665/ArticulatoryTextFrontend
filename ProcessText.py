@@ -58,7 +58,7 @@ class TextFrontend:
             if str(token).replace(".", "").replace(",", "").isnumeric():
                 to = "cardinal"
                 if len(utt) > index + 1:
-                    if utt[index + 1] == "$" or utt[index + 1] == "€":
+                    if str(utt[index + 1]) == "$" or str(utt[index + 1]) == "€":
                         to = "currency"
                     elif len(str(token)) == 4 and str(token).isnumeric():
                         to = "ordinal"
