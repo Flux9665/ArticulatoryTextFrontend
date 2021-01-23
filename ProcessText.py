@@ -7,12 +7,13 @@ from cleantext import clean
 
 
 class TextFrontend:
-    def __init__(self, language, use_shallow_pos=True):
+    def __init__(self, language, use_shallow_pos=True, use_positional_information=True):
         """
         Mostly loading the right spacy
         models and preparing ID lookups
         """
         self.use_shallow_pos = use_shallow_pos
+        self.use_positional_information = use_positional_information
 
         if language == "en":
             self.clean_lang = "en"
@@ -69,8 +70,9 @@ class TextFrontend:
         tensors = []
         phones_vector = []
         tags_vector = []
+        position_vector = []
 
-        # get POS and generate tensors
+        # vectorize and get POS
         if self.use_shallow_pos:
             utt = self.tagger(utt)
         for index, phonemized_token in enumerate(phonemized_tokens):
@@ -81,12 +83,18 @@ class TextFrontend:
             phones_vector.append(ord(' '))
             if self.use_shallow_pos:
                 tags_vector.append("SPACE__")
+
+        # generate tensors
         tensors.append(torch.tensor(phones_vector))
         if self.use_shallow_pos:
             tags_numeric_vector = []
             for el in tags_vector:
                 tags_numeric_vector.append(self.tag_id_lookup[el])
             tensors.append(torch.tensor(tags_numeric_vector))
+        if self.use_positional_information:
+            for index in range(len(phones_vector)):
+                position_vector.append(round(index / len(phones_vector), 3))
+            tensors.append(torch.tensor(position_vector))
         if view and self.use_shallow_pos:
             tags = []
             for el in utt:
