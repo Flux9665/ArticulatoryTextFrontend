@@ -56,13 +56,13 @@ class TextFrontend:
         cleaned_tokens = []
         for index, token in enumerate(utt):
             if str(token).replace(".", "").replace(",", "").isnumeric():
+                to = "cardinal"
                 if self.clean_lang == "en":
                     num = num2words(float(str(token).replace(",", "")), lang=self.clean_lang, to=to)
                 elif self.clean_lang == "de":
                     num = num2words(float(str(token).replace(".", "")), lang=self.clean_lang, to=to)
                 if len(utt) > index + 1:
                     if str(utt[index + 1]) == "$" or str(utt[index + 1]) == "€":
-                        to = "cardinal"
                         num = ""
                         if self.clean_lang == "en":
                             for el in str(token).split("."):
