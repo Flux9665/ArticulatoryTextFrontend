@@ -56,29 +56,26 @@ class TextFrontend:
         cleaned_tokens = []
         for index, token in enumerate(utt):
             if str(token).replace(".", "").replace(",", "").isnumeric():
-                to = "cardinal"
+                if self.clean_lang == "en":
+                    num = num2words(float(str(token).replace(",", "")), lang=self.clean_lang, to=to)
+                elif self.clean_lang == "de":
+                    num = num2words(float(str(token).replace(".", "")), lang=self.clean_lang, to=to)
                 if len(utt) > index + 1:
                     if str(utt[index + 1]) == "$" or str(utt[index + 1]) == "€":
-                        to = "currency"
-                    elif len(str(token)) == 4 and str(token).isnumeric():
-                        to = "ordinal"
-                if self.clean_lang == "en":
-                    cleaned_tokens.append(
-                        clean(num2words(float(str(token).replace(",", "")), lang=self.clean_lang, to=to),
-                              fix_unicode=True,
-                              to_ascii=True, lower=False,
-                              lang=self.clean_lang))
-                elif self.clean_lang == "de":
-                    cleaned_tokens.append(
-                        clean(num2words(float(str(token).replace(".", "")), lang=self.clean_lang, to=to),
-                              fix_unicode=True,
-                              to_ascii=True, lower=False,
-                              lang=self.clean_lang))
-                else:
-                    cleaned_tokens.append(
-                        clean(num2words(float(str(token).replace(",", "")), lang=self.clean_lang), fix_unicode=True,
-                              to_ascii=True, lower=False,
-                              lang=self.clean_lang))
+                        to = "cardinal"
+                        num = ""
+                        if self.clean_lang == "en":
+                            for el in str(token).split("."):
+                                num += num2words(float(el), lang=self.clean_lang, to=to) + " "
+                        elif self.clean_lang == "de":
+                            for el in str(token).split(","):
+                                num += num2words(float(el), lang=self.clean_lang, to=to) + " "
+                elif len(str(token)) == 4 and str(token).isnumeric():
+                    to = "year"
+                cleaned_tokens.append(clean(num.rstrip(" "),
+                                            fix_unicode=True,
+                                            to_ascii=True, lower=False,
+                                            lang=self.clean_lang))
             else:
                 cleaned_tokens.append(clean(token, fix_unicode=True, to_ascii=True, lower=False, lang=self.clean_lang))
         if view:
