@@ -56,9 +56,21 @@ class TextFrontend:
         cleaned_tokens = []
         for token in utt:
             if str(token).replace(".", "").replace(",", "").isnumeric():
-                cleaned_tokens.append(
-                    clean(num2words(str(token), lang=self.clean_lang), fix_unicode=True, to_ascii=True, lower=False,
-                          lang=self.clean_lang))
+                if self.clean_lang == "en":
+                    cleaned_tokens.append(
+                        clean(num2words(float(str(token).replace(",", "")), lang=self.clean_lang), fix_unicode=True,
+                              to_ascii=True, lower=False,
+                              lang=self.clean_lang))
+                elif self.clean_lang == "de":
+                    cleaned_tokens.append(
+                        clean(num2words(float(str(token).replace(".", "")), lang=self.clean_lang), fix_unicode=True,
+                              to_ascii=True, lower=False,
+                              lang=self.clean_lang))
+                else:
+                    cleaned_tokens.append(
+                        clean(num2words(float(str(token).replace(",", "")), lang=self.clean_lang), fix_unicode=True,
+                              to_ascii=True, lower=False,
+                              lang=self.clean_lang))
             cleaned_tokens.append(clean(token, fix_unicode=True, to_ascii=True, lower=False, lang=self.clean_lang))
         if view:
             print("Cleaned Tokens: \n{}\n".format(cleaned_tokens))
