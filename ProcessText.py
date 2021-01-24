@@ -1,5 +1,7 @@
 import sys
+from collections import defaultdict
 
+import numpy
 import phonemizer
 import spacy
 import torch
@@ -14,6 +16,16 @@ class TextFrontend:
         """
         self.use_shallow_pos = use_shallow_pos
         self.use_positional_information = use_positional_information
+
+        # list taken and modified from https://github.com/dmort27/panphon
+        self.ipa_to_vector = defaultdict()
+        self.default_vector = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        with open("ipa_bases.csv", encoding='utf8') as f:
+            features = f.read()
+        features_list = features.split("\n")
+        for index in range(1, len(features_list)):
+            line_list = features_list[index].split(",")
+            self.ipa_to_vector[line_list[0]] = [float(x) for x in line_list[1:]]
 
         if language == "en":
             self.clean_lang = "en"
@@ -37,7 +49,6 @@ class TextFrontend:
             function_word_tags = {"ADP", "AUX", "CCONJ", "DET", "NUM", "PART", "PRON", "SCONJ"}
             other_tags = {"PUNCT", "SYM", "X"}
             self.tag_id_lookup = {"SPACE__": 0}
-            self.dep_id_lookup = {"SPACE__": 0}
             for tag in content_word_tags:
                 self.tag_id_lookup[tag] = 1
             for tag in function_word_tags:
@@ -77,15 +88,16 @@ class TextFrontend:
             utt = self.tagger(utt)
         for index, phonemized_token in enumerate(phonemized_tokens):
             for char in phonemized_token:
-                phones_vector.append(ord(char))
+                phones_vector.append(self.ipa_to_vector.get(char, self.default_vector))
                 if self.use_shallow_pos:
                     tags_vector.append(utt[index].pos_)
-            phones_vector.append(ord(' '))
+            phones_vector.append(self.default_vector)
             if self.use_shallow_pos:
                 tags_vector.append("SPACE__")
 
         # generate tensors
-        tensors.append(torch.tensor(phones_vector))
+        for line in numpy.transpose(numpy.array(phones_vector)):
+            tensors.append(torch.tensor(line))
         if self.use_shallow_pos:
             tags_numeric_vector = []
             for el in tags_vector:
@@ -107,4 +119,4 @@ class TextFrontend:
 
 if __name__ == '__main__':
     tfr = TextFrontend("en")
-    print(tfr.string_to_tensor("I own 19,999 cows which I bought for 5.50$!", view=True))
+    tfr.string_to_tensor("I own 19,999 cows which I bought for 5.50$!", view=True)
