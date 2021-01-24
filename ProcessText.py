@@ -7,6 +7,41 @@ import spacy
 import torch
 from cleantext import clean
 
+"""
+Dimensions in a Tensor correspond to:
+
+syl (binary, phonetic property of phoneme)
+son (binary, phonetic property of phoneme)
+cons (binary, phonetic property of phoneme)
+cont (binary, phonetic property of phoneme)
+delrel (binary, phonetic property of phoneme)
+lat (binary, phonetic property of phoneme)
+nas (binary, phonetic property of phoneme)
+strid (binary, phonetic property of phoneme)
+voi (binary, phonetic property of phoneme)
+sg (binary, phonetic property of phoneme)
+cg (binary, phonetic property of phoneme)
+ant (binary, phonetic property of phoneme)
+cor (binary, phonetic property of phoneme)
+distr (binary, phonetic property of phoneme)
+lab (binary, phonetic property of phoneme)
+hi (binary, phonetic property of phoneme)
+lo (binary, phonetic property of phoneme)
+back (binary, phonetic property of phoneme)
+round (binary, phonetic property of phoneme)
+velaric (binary, phonetic property of phoneme)
+tense (binary, phonetic property of phoneme)
+long (binary, phonetic property of phoneme)
+hitone (binary, phonetic property of phoneme)
+hireg (binary, phonetic property of phoneme)
+
+stress (binary, stressmarker identity)
+
+pos (1 = content word, 2 = function word, 3 = other word, 0 = space)
+
+position in sequence (float, corresponds to percent of sequence from left to right)
+"""
+
 
 class TextFrontend:
     def __init__(self, language, use_shallow_pos=True, use_positional_information=True):
@@ -111,7 +146,7 @@ class TextFrontend:
             tags = []
             for el in utt:
                 tags.append(el.tag_)
-            print("POS Tags (internally simplified to content, function and other): \n{}\n".format(tags))
+            print("POS Tags: \n{}\n".format(tags))
 
         # combine tensors and return
         return torch.stack(tensors, 0)
@@ -119,4 +154,4 @@ class TextFrontend:
 
 if __name__ == '__main__':
     tfr = TextFrontend("en")
-    tfr.string_to_tensor("I own 19,999 cows which I bought for 5.50$!", view=True)
+    print(tfr.string_to_tensor("I own 19,999 cows which I bought for 5.50$!", view=True))
