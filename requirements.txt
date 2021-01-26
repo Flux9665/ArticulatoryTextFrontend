@@ -1,4 +1,3 @@
-polyglot
 numpy
 scipy
 torchaudio

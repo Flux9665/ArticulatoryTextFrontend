@@ -94,11 +94,11 @@ class AudioPreprocessor:
 
     def to_mfcc_bank(self, np, buckets=80):
         """
-        outputs a spectrogram as tensor for a
-        given array
+        outputs a spectrogram-like matrix
+        as tensor for a given audio vector
         """
         normalized_audio = self.process_audio(np)
-        return audio_to_banked_mfcc_tensor(normalized_audio, self.sr, buckets=80)
+        return audio_to_banked_mfcc_tensor(normalized_audio, self.sr, buckets=buckets)
 
 
 def read(path):
