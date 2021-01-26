@@ -6,24 +6,40 @@ import numpy
 import pyloudnorm as pyln
 import soundfile as sf
 import torch
-from scipy.signal import butter, sosfilt
-from torchaudio.compliance.kaldi import fbank
+from torchaudio.transforms import MFCC, MuLawEncoding, MuLawDecoding, Resample
 from torchaudio.transforms import Vad as VoiceActivityDetection
 
 
 class AudioPreprocessor:
-    def __init__(self, sr):
+    def __init__(self, sr, new_sr=None):
         self.sr = sr
         self.vad = VoiceActivityDetection(sample_rate=sr)
+        self.mu_decode = MuLawDecoding()
+        self.mu_encode = MuLawEncoding()
+        self.meter = pyln.Meter(sr)
+        if new_sr is not None:
+            self.resample = Resample(orig_freq=sr, new_freq=new_sr)
+        else:
+            self.resample = lambda x: x
 
-    def cut_silence_from_beginning(self, np):
+    def apply_mu_law(self, audio):
+        """
+        encodes the signal and then
+        decodes it. It is lossy, but
+        the idea is that the lossyness
+        only affects the noise and the
+        voice is retained.
+        """
+        return self.mu_decode(self.mu_encode(audio))
+
+    def cut_silence_from_beginning(self, audio):
         """
         applies cepstral voice activity
         detection and noise reduction to
         cut silence from the beginning of
         a recording
         """
-        return numpy.array(self.vad.forward(torch.from_numpy(np)))
+        return self.vad(torch.from_numpy(audio))
 
     def to_mono(self, x):
         """
@@ -34,71 +50,36 @@ class AudioPreprocessor:
         else:
             return x
 
-    def resample(self, x, new_sr):
-        """
-        change sampling rate, if so desired
-        """
-        if self.sr != new_sr:
-            return lb.resample(x, self.sr, new_sr)
-        else:
-            return x
-
-    def apply_mu_law(self, x):
-        """
-        if I understand this right: this
-        compresses the signal with the goal
-        of preserving speech, but the lossyness
-        takes out non-speech (--> noise)
-        """
-        return lb.mu_expand(lb.mu_compress(x))
-
-    def normalize_loudness(self, np):
+    def normalize_loudness(self, audio):
         """
         normalize the amplitudes according to
         their decibels, so this should turn any
         signal with different magnitudes into
         the same magnitude by analysing loudness
         """
-        meter = pyln.Meter(self.sr)
-        loudness = meter.integrated_loudness(np)
-        return pyln.normalize.loudness(np, loudness, -30.0)
 
-    def apply_bandpass_filter(self, np, lowcut=50.0, highcut=8000.0, order=5):
-        """
-        filter out frequencies above 8000Hz and
-        below 50Hz since those are outside the
-        human voice range and thus likely noise
-        """
-        nyq = 0.5 * self.sr
-        low = lowcut / nyq
-        high = highcut / nyq
-        sos = butter(order, [low, high], analog=False, btype='band', output='sos')
-        y = sosfilt(sos, np)
-        return y
+        loudness = self.meter.integrated_loudness(audio)
+        return pyln.normalize.loudness(audio, loudness, -30.0)
 
-    def process_audio(self, np, desired_sr=None):
+    def process_audio(self, audio):
         """
-        one function to apply them all in the
-        correct order. To skip a step, simply
-        comment out the line.
+        one function to apply them all in an
+        order that makes sense.
         """
-        audio = self.to_mono(np)
-        audio = self.normalize_loudness(audio)  # in here twice, once that we get consistent input levels to the VAD
+        audio = self.to_mono(audio)
+        audio = self.normalize_loudness(audio)
         audio = self.cut_silence_from_beginning(audio)
         audio = self.apply_mu_law(audio)
-        audio = self.apply_bandpass_filter(audio)
-        if desired_sr is not None:
-            audio = self.resample(audio, desired_sr)
-        audio = self.normalize_loudness(audio)  # and once to make sure the final result retained scale
+        audio = self.resample(audio)
         return audio
 
-    def to_mfcc_bank(self, np, buckets=80):
+    def to_mfcc(self, audio, normalize=True, n_mfccs=80):
         """
-        outputs a spectrogram-like matrix
-        as tensor for a given audio vector
+        outputs a matrix of MFCCs
         """
-        normalized_audio = self.process_audio(np)
-        return audio_to_banked_mfcc_tensor(normalized_audio, self.sr, buckets=buckets)
+        if normalize:
+            audio = self.process_audio(audio)
+        return MFCC(sample_rate=self.sr, n_mfcc=n_mfccs)(audio)
 
 
 def read(path):
@@ -110,14 +91,6 @@ def write(path, audio, sr):
     sf.write(path, audio, sr)
 
 
-def audio_to_banked_mfcc_tensor(audio, sr, buckets=80):
-    audio_unsqueezed = torch.from_numpy(audio).unsqueeze(0)
-    filter_bank = fbank(audio_unsqueezed, sample_frequency=sr, num_mel_bins=buckets)
-    pitch = torch.zeros(filter_bank.shape[0], 3)
-    speech_in_features = torch.cat([filter_bank, pitch], 1).numpy()
-    return speech_in_features
-
-
 def normalize_corpus(path_to_orig_corpus, path_to_normalized_clone, desired_sr=None):
     """
     prepares an entire corpus at once
@@ -125,26 +98,25 @@ def normalize_corpus(path_to_orig_corpus, path_to_normalized_clone, desired_sr=N
     # structure has to be: path_to_orig_corpus/speakerID/audios/filename.wav
     # everything else doesn't matter and is kept the same
 
-    audio_preprocessor = None
-
-    # set up the clone
+    # clone the corpus
     if os.path.exists(path_to_normalized_clone):
         shutil.rmtree(path_to_normalized_clone)
     shutil.copytree(path_to_orig_corpus, path_to_normalized_clone)
 
     # go through clone and process the audios
+    audio_preprocessor = None
     for speakerID in os.listdir(path_to_normalized_clone):
         for audio in os.listdir(os.path.join(path_to_normalized_clone, speakerID, "audios")):
             print("Processing audio {} from speaker {}".format(audio, speakerID))
             raw_audio, sr = read(os.path.join(path_to_normalized_clone, speakerID, "audios", audio))
             if audio_preprocessor is None:
-                audio_preprocessor = AudioPreprocessor(sr=sr)
-            if desired_sr is None:
-                desired_sr = sr
-            processed_audio = audio_preprocessor.process_audio(raw_audio, desired_sr)
+                audio_preprocessor = AudioPreprocessor(sr=sr, new_sr=desired_sr)
+                if not desired_sr:
+                    desired_sr = sr
+            processed_audio = audio_preprocessor.process_audio(raw_audio)
             write(os.path.join(path_to_normalized_clone, speakerID, "audios", audio), processed_audio, desired_sr)
 
 
 if __name__ == '__main__':
     # test
-    normalize_corpus("test_corp", "test_corp_norm")
+    normalize_corpus("test_corp", "test_corp_norm", desired_sr=None)
