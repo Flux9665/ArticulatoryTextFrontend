@@ -1,5 +1,4 @@
 numpy
-scipy
 torchaudio
 soundfile
 pyloudnorm
@@ -8,4 +7,3 @@ phonemizer
 clean-text
 unidecode
 librosa
-num2words

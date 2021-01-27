@@ -118,5 +118,4 @@ def normalize_corpus(path_to_orig_corpus, path_to_normalized_clone, desired_sr=N
 
 
 if __name__ == '__main__':
-    # test
     normalize_corpus("test_corp", "test_corp_norm", desired_sr=None)

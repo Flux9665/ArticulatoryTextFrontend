@@ -6,6 +6,7 @@ import phonemizer
 import spacy
 import torch
 from cleantext import clean
+from spacy.cli import download
 
 """
 Dimensions in a Tensor correspond to:
@@ -65,11 +66,13 @@ class TextFrontend:
         if language == "en":
             self.clean_lang = "en"
             self.g2p_lang = "en-us"
+            download("en_core_web_sm")
             self.nlp = spacy.load('en_core_web_sm')
 
         elif language == "de":
             self.clean_lang = "de"
             self.g2p_lang = "de"
+            download("de_core_news_sm")
             self.nlp = spacy.load('de_core_news_sm')
 
         else:
