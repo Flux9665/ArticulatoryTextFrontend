@@ -9,59 +9,96 @@ from cleantext import clean
 from spacy.cli import download
 
 """
-Dimensions in a Tensor correspond to:
+Explanation of the Tensor dimensions:
 
-syl (binary, phonetic property of phoneme)
-son (binary, phonetic property of phoneme)
-cons (binary, phonetic property of phoneme)
-cont (binary, phonetic property of phoneme)
-delrel (binary, phonetic property of phoneme)
-lat (binary, phonetic property of phoneme)
-nas (binary, phonetic property of phoneme)
-strid (binary, phonetic property of phoneme)
-voi (binary, phonetic property of phoneme)
-sg (binary, phonetic property of phoneme)
-cg (binary, phonetic property of phoneme)
-ant (binary, phonetic property of phoneme)
-cor (binary, phonetic property of phoneme)
-distr (binary, phonetic property of phoneme)
-lab (binary, phonetic property of phoneme)
-hi (binary, phonetic property of phoneme)
-lo (binary, phonetic property of phoneme)
-back (binary, phonetic property of phoneme)
-round (binary, phonetic property of phoneme)
-velaric (binary, phonetic property of phoneme)
-tense (binary, phonetic property of phoneme)
-long (binary, phonetic property of phoneme)
-hitone (binary, phonetic property of phoneme)
-hireg (binary, phonetic property of phoneme)
+The First Block comes from a modified PanPhon phoneme 
+vector lookup table and can optionally be used instead 
+of a bland phoneme ID. It contains articulatory features 
+of the phonemes. https://www.aclweb.org/anthology/C16-1328/
 
-stress (binary, stressmarker identity)
+syl -- ternery, phonetic property of phoneme
+son -- ternery, phonetic property of phoneme
+cons -- ternery, phonetic property of phoneme
+cont -- ternery, phonetic property of phoneme
+delrel -- ternery, phonetic property of phoneme
+lat -- ternery, phonetic property of phoneme
+nas -- ternery, phonetic property of phoneme
+strid -- ternery, phonetic property of phoneme
+voi -- ternery, phonetic property of phoneme
+sg -- ternery, phonetic property of phoneme
+cg -- ternery, phonetic property of phoneme
+ant -- ternery, phonetic property of phoneme
+cor -- ternery, phonetic property of phoneme
+distr -- ternery, phonetic property of phoneme
+lab -- ternery, phonetic property of phoneme
+hi -- ternery, phonetic property of phoneme
+lo -- ternery, phonetic property of phoneme
+back -- ternery, phonetic property of phoneme
+round -- ternery, phonetic property of phoneme
+velaric -- ternery, phonetic property of phoneme
+tense -- ternery, phonetic property of phoneme
+long -- ternery, phonetic property of phoneme
+hitone -- ternery, phonetic property of phoneme
+hireg -- ternery, phonetic property of phoneme
 
-pos (1 = content word, 2 = function word, 3 = other word, 0 = space)
+suprasegmentalia -- integer, 1 = primary stress, 
+                             2 = secondary stress,
+                             3 = exclamation mark (overwrites IPA symbol for clicks, we 
+                                 assume that we don't deal with languages with clicks.), 
+                             4 = question mark, 
+                             5 = lengthening,
+                             6 = half-lenghtening,
+                             7 = shortening,
+                             8 = syllable boundary,
+                             9 = tact boundary,
+                             10 = upper intonation grouping
 
-position in sequence (float, corresponds to percent of sequence from left to right)
+The POS feature is assumed to help with the latent learning of 
+intonation phrase boundaries, as the Chinks and Chunks theory 
+suggests, see https://www.researchgate.net/publication/230876257_Text_Analysis_and_Word_Pronunciation_in_Text-to-Speech_Synthesis
+
+pos -- integer, 1 = content word, 
+                2 = function word, 
+                3 = other word, 
+                0 = space
+
+The position feature is not necessary in transformers due to 
+the positional encoding, but likely helpful otherwise.
+
+position in sequence -- float, corresponds to percent of sequence from left to right. 
 """
 
 
 class TextFrontend:
-    def __init__(self, language, use_shallow_pos=True, use_positional_information=True):
+    def __init__(self,
+                 language,
+                 use_panphon_vectors=True,
+                 use_shallow_pos=True,
+                 use_positional_information=False
+                 ):
         """
         Mostly loading the right spacy
         models and preparing ID lookups
         """
+        self.use_panphon_vectors = use_panphon_vectors
         self.use_shallow_pos = use_shallow_pos
         self.use_positional_information = use_positional_information
 
         # list taken and modified from https://github.com/dmort27/panphon
         self.ipa_to_vector = defaultdict()
-        self.default_vector = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        if use_panphon_vectors:
+            self.default_vector = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        else:
+            self.default_vector = 0
         with open("ipa_bases.csv", encoding='utf8') as f:
             features = f.read()
         features_list = features.split("\n")
         for index in range(1, len(features_list)):
             line_list = features_list[index].split(",")
-            self.ipa_to_vector[line_list[0]] = [float(x) for x in line_list[1:]]
+            if use_panphon_vectors:
+                self.ipa_to_vector[line_list[0]] = [float(x) for x in line_list[1:]]
+            else:
+                self.ipa_to_vector[line_list[0]] = index
 
         if language == "en":
             self.clean_lang = "en"
@@ -134,8 +171,11 @@ class TextFrontend:
                 tags_vector.append("SPACE__")
 
         # generate tensors
-        for line in numpy.transpose(numpy.array(phones_vector)):
-            tensors.append(torch.tensor(line))
+        if not self.default_vector == 0:
+            for line in numpy.transpose(numpy.array(phones_vector)):
+                tensors.append(torch.tensor(line))
+        else:
+            tensors.append(torch.tensor(phones_vector))
         if self.use_shallow_pos:
             tags_numeric_vector = []
             for el in tags_vector:
@@ -156,5 +196,5 @@ class TextFrontend:
 
 
 if __name__ == '__main__':
-    tfr = TextFrontend("en")
-    print(tfr.string_to_tensor("I own 19,999 cows which I bought for 5.50$!", view=True))
+    tfr = TextFrontend("en", use_panphon_vectors=False, use_shallow_pos=False, use_positional_information=False)
+    print(tfr.string_to_tensor("I own 19999 cows which I bought for 5.50$!", view=True))
