@@ -52,6 +52,8 @@ suprasegmentalia -- integer, 1 = primary stress,
                              8 = syllable boundary,
                              9 = tact boundary,
                              10 = upper intonation grouping
+                             11 = one of , ; : - identity
+                             12 = intonation phrase boundary identity according to chinks and chunks
 
 The POS feature is assumed to help with the latent learning of 
 intonation phrase boundaries, as the Chinks and Chunks theory 
@@ -60,7 +62,6 @@ suggests, see https://www.researchgate.net/publication/230876257_Text_Analysis_a
 pos -- integer, 1 = content word, 
                 2 = function word, 
                 3 = other word, 
-                0 = space
 
 The position feature is not necessary in transformers due to 
 the positional encoding, but likely helpful otherwise.
@@ -73,7 +74,8 @@ class TextFrontend:
     def __init__(self,
                  language,
                  use_panphon_vectors=True,
-                 use_shallow_pos=True,
+                 use_shallow_pos=False,
+                 use_chinksandchunks_ipb=True,
                  use_positional_information=False
                  ):
         """
@@ -82,6 +84,7 @@ class TextFrontend:
         """
         self.use_panphon_vectors = use_panphon_vectors
         self.use_shallow_pos = use_shallow_pos
+        self.use_chinksandchunks_ipb = use_chinksandchunks_ipb
         self.use_positional_information = use_positional_information
 
         # list taken and modified from https://github.com/dmort27/panphon
@@ -103,14 +106,16 @@ class TextFrontend:
         if language == "en":
             self.clean_lang = "en"
             self.g2p_lang = "en-us"
-            download("en_core_web_sm")
-            self.nlp = spacy.load('en_core_web_sm')
+            if use_chinksandchunks_ipb or use_shallow_pos:
+                download("en_core_web_sm")
+                self.nlp = spacy.load('en_core_web_sm')
 
         elif language == "de":
             self.clean_lang = "de"
             self.g2p_lang = "de"
-            download("de_core_news_sm")
-            self.nlp = spacy.load('de_core_news_sm')
+            if use_chinksandchunks_ipb or use_shallow_pos:
+                download("de_core_news_sm")
+                self.nlp = spacy.load('de_core_news_sm')
 
         else:
             print("Language not supported yet")
@@ -123,7 +128,7 @@ class TextFrontend:
             content_word_tags = {"ADJ", "ADV", "INTJ", "NOUN", "PROPN", "VERB"}
             function_word_tags = {"ADP", "AUX", "CCONJ", "DET", "NUM", "PART", "PRON", "SCONJ"}
             other_tags = {"PUNCT", "SYM", "X"}
-            self.tag_id_lookup = {"SPACE__": 0}
+            self.tag_id_lookup = {"SPACE__": 3}
             for tag in content_word_tags:
                 self.tag_id_lookup[tag] = 1
             for tag in function_word_tags:
@@ -138,7 +143,7 @@ class TextFrontend:
         # tokenize
         utt = self.tokenizer(text)
 
-        # clean emojis etc
+        # clean unicode errors etc
         cleaned_tokens = []
         for index, token in enumerate(utt):
             cleaned_tokens.append(clean(token, fix_unicode=True, to_ascii=True, lower=False, lang=self.clean_lang))
@@ -148,8 +153,15 @@ class TextFrontend:
         # phonemize
         phonemized_tokens = []
         for cleaned_token in cleaned_tokens:
-            phonemized_tokens.append(phonemizer.phonemize(cleaned_token, backend="espeak", language=self.g2p_lang,
-                                                          preserve_punctuation=True, strip=True, with_stress=True))
+            phonemized_tokens.append(phonemizer.phonemize(cleaned_token,
+                                                          backend="espeak",
+                                                          language=self.g2p_lang,
+                                                          preserve_punctuation=True,
+                                                          strip=True,
+                                                          with_stress=True).replace(",",
+                                                                                    "-").replace(";",
+                                                                                                 "-").replace(":",
+                                                                                                              "-"))
         if view:
             print("Phonemes: \n{}\n".format(phonemized_tokens))
 
@@ -164,8 +176,14 @@ class TextFrontend:
         for index, phonemized_token in enumerate(phonemized_tokens):
             for char in phonemized_token:
                 phones_vector.append(self.ipa_to_vector.get(char, self.default_vector))
-                if self.use_shallow_pos:
+                if self.use_shallow_pos or self.use_chinksandchunks_ipb:
                     tags_vector.append(utt[index].pos_)
+                if self.use_chinksandchunks_ipb:
+                    if len(tags_vector) > 2:
+                        if tags_vector[-2] != 2 and tags_vector[-1] == 2:
+                            phones_vector.append(self.ipa_to_vector["intonation_phrase_boundary"])
+                            if self.use_shallow_pos:
+                                tags_vector.append(utt[index].pos_)
             phones_vector.append(self.default_vector)
             if self.use_shallow_pos:
                 tags_vector.append("SPACE__")
@@ -196,5 +214,5 @@ class TextFrontend:
 
 
 if __name__ == '__main__':
-    tfr = TextFrontend("en", use_panphon_vectors=False, use_shallow_pos=False, use_positional_information=False)
-    print(tfr.string_to_tensor("I own 19999 cows which I bought for 5.50$!", view=True))
+    tfr = TextFrontend("en")
+    print(tfr.string_to_tensor("Hello!", view=True))
