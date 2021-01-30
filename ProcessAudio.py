@@ -1,7 +1,10 @@
 import os
 import shutil
 
+import librosa
 import librosa.core as lb
+import librosa.display as lbd
+import matplotlib.pyplot as plt
 import numpy
 import pyloudnorm as pyln
 import soundfile as sf
@@ -11,12 +14,14 @@ from torchaudio.transforms import Vad as VoiceActivityDetection
 
 
 class AudioPreprocessor:
-    def __init__(self, sr, new_sr=None):
+    def __init__(self, sr, new_sr=None, n_mfccs=120):
         self.sr = sr
+        self.new_sr = new_sr
         self.vad = VoiceActivityDetection(sample_rate=sr)
         self.mu_decode = MuLawDecoding()
         self.mu_encode = MuLawEncoding()
         self.meter = pyln.Meter(sr)
+        self.mfcc = MFCC(sample_rate=self.sr, n_mfcc=n_mfccs)
         if new_sr is not None:
             self.resample = Resample(orig_freq=sr, new_freq=new_sr)
         else:
@@ -73,13 +78,37 @@ class AudioPreprocessor:
         audio = self.resample(audio)
         return audio
 
-    def to_mfcc(self, audio, normalize=True, n_mfccs=80):
+    def to_mfcc(self, audio, normalize=True):
         """
         outputs a matrix of MFCCs
         """
         if normalize:
             audio = self.process_audio(audio)
-        return MFCC(sample_rate=self.sr, n_mfcc=n_mfccs)(audio)
+        else:
+            audio = torch.tensor(audio)
+        return self.mfcc(audio)
+
+    def visualize_cleaning(self, unclean_audio):
+        """
+        displays Mel Spectrogram of unclean audio
+        and then displays Mel Spectrogram of the
+        cleaned version.
+        """
+        fig, ax = plt.subplots(nrows=2, ncols=1)
+        unclean_audio = self.to_mono(unclean_audio)
+        clean_audio = numpy.array(self.process_audio(unclean_audio))
+        unclean = numpy.log(librosa.feature.melspectrogram(y=unclean_audio, sr=self.sr, power=1))
+        clean = numpy.log(librosa.feature.melspectrogram(y=clean_audio, sr=self.sr, power=1))
+        lbd.specshow(unclean, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[0], x_axis=None)
+        ax[0].set(title='Uncleaned Audio')
+        ax[0].label_outer()
+        if self.new_sr is not None:
+            lbd.specshow(clean, sr=self.new_sr, cmap='GnBu', y_axis='mel', ax=ax[1], x_axis=None)
+        else:
+            lbd.specshow(clean, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[1], x_axis=None)
+        ax[1].set(title='Cleaned Audio')
+        ax[1].label_outer()
+        plt.show()
 
 
 def read(path):
@@ -118,4 +147,6 @@ def normalize_corpus(path_to_orig_corpus, path_to_normalized_clone, desired_sr=N
 
 
 if __name__ == '__main__':
-    normalize_corpus("test_corp", "test_corp_norm", desired_sr=None)
+    np, fs = read("test_corp/Flux/audios/test.wav")
+    ap = AudioPreprocessor(sr=fs)
+    ap.visualize_cleaning(np)
