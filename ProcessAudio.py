@@ -1,6 +1,3 @@
-import os
-import shutil
-
 import librosa
 import librosa.core as lb
 import librosa.display as lbd
@@ -9,33 +6,41 @@ import numpy
 import pyloudnorm as pyln
 import soundfile as sf
 import torch
-from torchaudio.transforms import MFCC, MuLawEncoding, MuLawDecoding, Resample
+from torchaudio.functional import mu_law_decoding, mu_law_encoding
+from torchaudio.transforms import MFCC, MuLawEncoding, Resample
 from torchaudio.transforms import Vad as VoiceActivityDetection
 
 
 class AudioPreprocessor:
-    def __init__(self, sr, new_sr=None, n_mfccs=120):
-        self.sr = sr
-        self.new_sr = new_sr
-        self.vad = VoiceActivityDetection(sample_rate=sr)
-        self.mu_decode = MuLawDecoding()
+    def __init__(self, input_sr, output_sr=None, n_mfccs=120):
+        self.sr = input_sr
+        self.new_sr = output_sr
+        self.vad = VoiceActivityDetection(sample_rate=input_sr)
         self.mu_encode = MuLawEncoding()
-        self.meter = pyln.Meter(sr)
+        self.meter = pyln.Meter(input_sr)
         self.mfcc = MFCC(sample_rate=self.sr, n_mfcc=n_mfccs)
-        if new_sr is not None:
-            self.resample = Resample(orig_freq=sr, new_freq=new_sr)
+        self.final_sr = input_sr
+        if output_sr is not None:
+            self.resample = Resample(orig_freq=input_sr, new_freq=output_sr)
+            self.final_sr = output_sr
         else:
             self.resample = lambda x: x
 
     def apply_mu_law(self, audio):
         """
-        encodes the signal and then
-        decodes it. It is lossy, but
-        the idea is that the lossyness
-        only affects the noise and the
-        voice is retained.
+        brings the audio down from 16 bit
+        resolution to 8 bit resolution to
+        make using softmax to predict a
+        wave from it more feasible.
+
+        !CAREFUL! transforms the floats
+        between -1 and 1 to integers
+        between 0 and 255. So that is good
+        to work with, but bad to save/listen
+        to. Apply mu-law decoding before
+        saving or listening to the audio.
         """
-        return self.mu_decode(self.mu_encode(audio))
+        return self.mu_encode(audio)
 
     def cut_silence_from_beginning(self, audio):
         """
@@ -74,8 +79,8 @@ class AudioPreprocessor:
         audio = self.to_mono(audio)
         audio = self.normalize_loudness(audio)
         audio = self.cut_silence_from_beginning(audio)
-        audio = self.apply_mu_law(audio)
         audio = self.resample(audio)
+        audio = self.apply_mu_law(audio)
         return audio
 
     def to_mfcc(self, audio, normalize=True):
@@ -96,7 +101,8 @@ class AudioPreprocessor:
         """
         fig, ax = plt.subplots(nrows=2, ncols=1)
         unclean_audio = self.to_mono(unclean_audio)
-        clean_audio = numpy.array(self.process_audio(unclean_audio))
+        clean_audio = numpy.array(self.process_audio(unclean_audio), dtype='float32')
+
         unclean = numpy.log(librosa.feature.melspectrogram(y=unclean_audio, sr=self.sr, power=1))
         clean = numpy.log(librosa.feature.melspectrogram(y=clean_audio, sr=self.sr, power=1))
         lbd.specshow(unclean, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[0], x_axis=None)
@@ -111,42 +117,12 @@ class AudioPreprocessor:
         plt.show()
 
 
-def read(path):
-    return sf.read(path, dtype='float32')
-
-
-def write(path, audio, sr):
-    os.remove(path)
-    sf.write(path, audio, sr)
-
-
-def normalize_corpus(path_to_orig_corpus, path_to_normalized_clone, desired_sr=None):
-    """
-    prepares an entire corpus at once
-    """
-    # structure has to be: path_to_orig_corpus/speakerID/audios/filename.wav
-    # everything else doesn't matter and is kept the same
-
-    # clone the corpus
-    if os.path.exists(path_to_normalized_clone):
-        shutil.rmtree(path_to_normalized_clone)
-    shutil.copytree(path_to_orig_corpus, path_to_normalized_clone)
-
-    # go through clone and process the audios
-    audio_preprocessor = None
-    for speakerID in os.listdir(path_to_normalized_clone):
-        for audio in os.listdir(os.path.join(path_to_normalized_clone, speakerID, "audios")):
-            print("Processing audio {} from speaker {}".format(audio, speakerID))
-            raw_audio, sr = read(os.path.join(path_to_normalized_clone, speakerID, "audios", audio))
-            if audio_preprocessor is None:
-                audio_preprocessor = AudioPreprocessor(sr=sr, new_sr=desired_sr)
-                if not desired_sr:
-                    desired_sr = sr
-            processed_audio = audio_preprocessor.process_audio(raw_audio)
-            write(os.path.join(path_to_normalized_clone, speakerID, "audios", audio), processed_audio, desired_sr)
-
-
 if __name__ == '__main__':
-    np, fs = read("test_corp/Flux/audios/test.wav")
-    ap = AudioPreprocessor(sr=fs)
-    ap.visualize_cleaning(np)
+    wave, fs = sf.read("test_audio/test.wav")
+    ap = AudioPreprocessor(input_sr=fs, output_sr=16000)
+    ap.visualize_cleaning(wave)
+
+    clean_wave_mulaw = ap.process_audio(wave)
+    sf.write("test_audio/test_cleaned.wav", mu_law_decoding(clean_wave_mulaw, quantization_channels=256), ap.final_sr)
+
+    print(clean_wave_mulaw)
