@@ -1,3 +1,5 @@
+import warnings
+
 import librosa
 import librosa.core as lb
 import librosa.display as lbd
@@ -6,9 +8,10 @@ import numpy
 import pyloudnorm as pyln
 import soundfile as sf
 import torch
-from torchaudio.functional import mu_law_decoding, mu_law_encoding
-from torchaudio.transforms import MFCC, MuLawEncoding, Resample
+from torchaudio.transforms import MFCC, MuLawEncoding,MuLawDecoding, Resample
 from torchaudio.transforms import Vad as VoiceActivityDetection
+
+warnings.filterwarnings("ignore")
 
 
 class AudioPreprocessor:
@@ -17,6 +20,7 @@ class AudioPreprocessor:
         self.new_sr = output_sr
         self.vad = VoiceActivityDetection(sample_rate=input_sr)
         self.mu_encode = MuLawEncoding()
+        self.mu_decode = MuLawDecoding()
         self.meter = pyln.Meter(input_sr)
         self.mfcc = MFCC(sample_rate=self.sr, n_mfcc=n_mfccs)
         self.final_sr = input_sr
@@ -71,7 +75,7 @@ class AudioPreprocessor:
         loudness = self.meter.integrated_loudness(audio)
         return pyln.normalize.loudness(audio, loudness, -30.0)
 
-    def process_audio(self, audio):
+    def normalize_audio(self, audio):
         """
         one function to apply them all in an
         order that makes sense.
@@ -80,18 +84,7 @@ class AudioPreprocessor:
         audio = self.normalize_loudness(audio)
         audio = self.cut_silence_from_beginning(audio)
         audio = self.resample(audio)
-        audio = self.apply_mu_law(audio)
         return audio
-
-    def to_mfcc(self, audio, normalize=True):
-        """
-        outputs a matrix of MFCCs
-        """
-        if normalize:
-            audio = self.process_audio(audio)
-        else:
-            audio = torch.tensor(audio)
-        return self.mfcc(audio)
 
     def visualize_cleaning(self, unclean_audio):
         """
@@ -101,7 +94,7 @@ class AudioPreprocessor:
         """
         fig, ax = plt.subplots(nrows=2, ncols=1)
         unclean_audio = self.to_mono(unclean_audio)
-        clean_audio = numpy.array(self.process_audio(unclean_audio), dtype='float32')
+        clean_audio = numpy.array(self.normalize_audio(unclean_audio), dtype='float32')
 
         unclean = numpy.log(librosa.feature.melspectrogram(y=unclean_audio, sr=self.sr, power=1))
         clean = numpy.log(librosa.feature.melspectrogram(y=clean_audio, sr=self.sr, power=1))
@@ -116,13 +109,32 @@ class AudioPreprocessor:
         ax[1].label_outer()
         plt.show()
 
+    def audio_to_wave_tensor(self, audio, normalize=True):
+        if normalize:
+            return self.apply_mu_law(self.normalize_audio(audio))
+        else:
+            return self.apply_mu_law(torch.tensor(audio))
+
+    def audio_to_mfcc_tensor(self, audio, normalize=True):
+        if normalize:
+            return self.mfcc(self.mu_decode(self.mu_encode(self.normalize_audio(audio))))
+        else:
+            return self.mfcc(self.mu_decode(self.mu_encode(torch.tensor(audio))))
+
 
 if __name__ == '__main__':
+    # load audio into numpy array
     wave, fs = sf.read("test_audio/test.wav")
+
+    # create audio preprocessor object
     ap = AudioPreprocessor(input_sr=fs, output_sr=16000)
+
+    # visualize a before and after of the cleaning
     ap.visualize_cleaning(wave)
 
-    clean_wave_mulaw = ap.process_audio(wave)
-    sf.write("test_audio/test_cleaned.wav", mu_law_decoding(clean_wave_mulaw, quantization_channels=256), ap.final_sr)
+    # write a cleaned version of the audio to listen to
+    sf.write("test_audio/test_cleaned.wav", ap.normalize_audio(wave), ap.final_sr)
 
-    print(clean_wave_mulaw)
+    # look at tensors of a wave representation and a mfcc representation
+    print("\n\nWave as Tensor (8 bit integer values, dtype=int64): \n{}".format(ap.audio_to_wave_tensor(wave)))
+    print("\n\nMFCCs as Tensor (16 bit float values, dtype=float32): \n{}".format(ap.audio_to_mfcc_tensor(wave)))
