@@ -76,7 +76,8 @@ class TextFrontend:
                  use_panphon_vectors=True,
                  use_shallow_pos=False,
                  use_chinksandchunks_ipb=True,
-                 use_positional_information=False
+                 use_positional_information=False,
+                 use_word_boundaries=False
                  ):
         """
         Mostly loading the right spacy
@@ -86,6 +87,7 @@ class TextFrontend:
         self.use_shallow_pos = use_shallow_pos
         self.use_chinksandchunks_ipb = use_chinksandchunks_ipb
         self.use_positional_information = use_positional_information
+        self.use_word_boundaries = use_word_boundaries
 
         # list taken and modified from https://github.com/dmort27/panphon
         self.ipa_to_vector = defaultdict()
@@ -184,9 +186,10 @@ class TextFrontend:
                             phones_vector.append(self.ipa_to_vector["intonation_phrase_boundary"])
                             if self.use_shallow_pos:
                                 tags_vector.append(utt[index].pos_)
-            phones_vector.append(self.default_vector)
-            if self.use_shallow_pos:
-                tags_vector.append("SPACE__")
+            if self.use_word_boundaries:
+                phones_vector.append(self.default_vector)
+                if self.use_shallow_pos:
+                    tags_vector.append("SPACE__")
 
         # generate tensors
         if not self.default_vector == 0:
