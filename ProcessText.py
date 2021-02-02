@@ -217,5 +217,10 @@ class TextFrontend:
 
 
 if __name__ == '__main__':
-    tfr = TextFrontend("en")
-    print(tfr.string_to_tensor("Hello!", view=True))
+    # test an English utterance
+    tfr_en = TextFrontend("en")
+    print(tfr_en.string_to_tensor("Hello!"))
+
+    # test a German utterance
+    tfr_de = TextFrontend("de")
+    print(tfr_de.string_to_tensor("Hallo!"))

@@ -1,6 +1,5 @@
 import warnings
 
-import librosa
 import librosa.core as lb
 import librosa.display as lbd
 import matplotlib.pyplot as plt
@@ -8,27 +7,28 @@ import numpy
 import pyloudnorm as pyln
 import soundfile as sf
 import torch
-from torchaudio.transforms import MFCC, MuLawEncoding,MuLawDecoding, Resample
+from torchaudio.transforms import MuLawEncoding, MuLawDecoding, Resample, MelSpectrogram
 from torchaudio.transforms import Vad as VoiceActivityDetection
 
 warnings.filterwarnings("ignore")
 
 
 class AudioPreprocessor:
-    def __init__(self, input_sr, output_sr=None, n_mfccs=120):
+    def __init__(self, input_sr, output_sr=None):
         self.sr = input_sr
         self.new_sr = output_sr
         self.vad = VoiceActivityDetection(sample_rate=input_sr)
         self.mu_encode = MuLawEncoding()
         self.mu_decode = MuLawDecoding()
         self.meter = pyln.Meter(input_sr)
-        self.mfcc = MFCC(sample_rate=self.sr, n_mfcc=n_mfccs)
         self.final_sr = input_sr
         if output_sr is not None:
             self.resample = Resample(orig_freq=input_sr, new_freq=output_sr)
             self.final_sr = output_sr
         else:
             self.resample = lambda x: x
+        self.mel_spec_orig_sr = MelSpectrogram(sample_rate=input_sr, n_mels=256)
+        self.mel_spec_new_sr = MelSpectrogram(sample_rate=self.final_sr, n_mels=256)
 
     def apply_mu_law(self, audio):
         """
@@ -93,18 +93,16 @@ class AudioPreprocessor:
         cleaned version.
         """
         fig, ax = plt.subplots(nrows=2, ncols=1)
-        unclean_audio = self.to_mono(unclean_audio)
-        clean_audio = numpy.array(self.normalize_audio(unclean_audio), dtype='float32')
-
-        unclean = numpy.log(librosa.feature.melspectrogram(y=unclean_audio, sr=self.sr, power=1))
-        clean = numpy.log(librosa.feature.melspectrogram(y=clean_audio, sr=self.sr, power=1))
-        lbd.specshow(unclean, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[0], x_axis=None)
+        unclean_audio_mono = self.to_mono(unclean_audio)
+        unclean_spec = numpy.log(numpy.array(self.audio_to_mel_spec_tensor(unclean_audio_mono, normalize=False)))
+        clean_spec = numpy.log(numpy.array(self.audio_to_mel_spec_tensor(unclean_audio_mono, normalize=True)))
+        lbd.specshow(unclean_spec, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[0], x_axis='time')
         ax[0].set(title='Uncleaned Audio')
         ax[0].label_outer()
         if self.new_sr is not None:
-            lbd.specshow(clean, sr=self.new_sr, cmap='GnBu', y_axis='mel', ax=ax[1], x_axis=None)
+            lbd.specshow(clean_spec, sr=self.new_sr, cmap='GnBu', y_axis='mel', ax=ax[1], x_axis='time')
         else:
-            lbd.specshow(clean, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[1], x_axis=None)
+            lbd.specshow(clean_spec, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[1], x_axis='time')
         ax[1].set(title='Cleaned Audio')
         ax[1].label_outer()
         plt.show()
@@ -115,11 +113,11 @@ class AudioPreprocessor:
         else:
             return self.apply_mu_law(torch.tensor(audio))
 
-    def audio_to_mfcc_tensor(self, audio, normalize=True):
+    def audio_to_mel_spec_tensor(self, audio, normalize=True):
         if normalize:
-            return self.mfcc(self.mu_decode(self.mu_encode(self.normalize_audio(audio))))
+            return self.mel_spec_new_sr(self.mu_decode(self.mu_encode(self.normalize_audio(audio))))
         else:
-            return self.mfcc(self.mu_decode(self.mu_encode(torch.tensor(audio))))
+            return self.mel_spec_orig_sr(self.mu_decode(self.mu_encode(torch.tensor(audio))))
 
 
 if __name__ == '__main__':
@@ -135,6 +133,6 @@ if __name__ == '__main__':
     # write a cleaned version of the audio to listen to
     sf.write("test_audio/test_cleaned.wav", ap.normalize_audio(wave), ap.final_sr)
 
-    # look at tensors of a wave representation and a mfcc representation
+    # look at tensors of a wave representation and a mel spectrogram representation
     print("\n\nWave as Tensor (8 bit integer values, dtype=int64): \n{}".format(ap.audio_to_wave_tensor(wave)))
-    print("\n\nMFCCs as Tensor (16 bit float values, dtype=float32): \n{}".format(ap.audio_to_mfcc_tensor(wave)))
+    print("\n\nMelSpec as Tensor (16 bit float values, dtype=float32): \n{}".format(ap.audio_to_mel_spec_tensor(wave)))
