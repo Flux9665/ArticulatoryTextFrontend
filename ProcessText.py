@@ -41,19 +41,20 @@ long -- ternery, phonetic property of phoneme
 hitone -- ternery, phonetic property of phoneme
 hireg -- ternery, phonetic property of phoneme
 
-suprasegmentalia -- integer, 1 = primary stress, 
-                             2 = secondary stress,
-                             3 = exclamation mark (overwrites IPA symbol for clicks, we 
-                                 assume that we don't deal with languages with clicks.), 
-                             4 = question mark, 
-                             5 = lengthening,
-                             6 = half-lenghtening,
-                             7 = shortening,
-                             8 = syllable boundary,
-                             9 = tact boundary,
-                             10 = upper intonation grouping
-                             11 = one of , ; : - identity
-                             12 = intonation phrase boundary identity according to chinks and chunks
+prosody and pauses -- integer, 1 = primary stress, 
+                               2 = secondary stress,
+                               3 = lengthening,
+                               4 = half-lenghtening,
+                               5 = shortening,
+                               6 = syllable boundary,
+                               7 = tact boundary,
+                               8 = upper intonation grouping
+                               9 = one of , ; : - identity
+                               10 = intonation phrase boundary identity according to chinks and chunks
+                             
+sentence type -- integer, 1 = neutral,
+                          2 = question,
+                          3 = exclamation
 
 The POS feature is assumed to help with the latent learning of 
 intonation phrase boundaries, as the Chinks and Chunks theory 
@@ -77,7 +78,9 @@ class TextFrontend:
                  use_shallow_pos=False,
                  use_chinksandchunks_ipb=True,
                  use_positional_information=False,
-                 use_word_boundaries=False
+                 use_word_boundaries=False,
+                 use_sentence_type=True,
+                 load_models=False
                  ):
         """
         Mostly loading the right spacy
@@ -88,6 +91,7 @@ class TextFrontend:
         self.use_chinksandchunks_ipb = use_chinksandchunks_ipb
         self.use_positional_information = use_positional_information
         self.use_word_boundaries = use_word_boundaries
+        self.use_sentence_type = use_sentence_type
 
         # list taken and modified from https://github.com/dmort27/panphon
         self.ipa_to_vector = defaultdict()
@@ -109,14 +113,16 @@ class TextFrontend:
             self.clean_lang = "en"
             self.g2p_lang = "en-us"
             if use_chinksandchunks_ipb or use_shallow_pos:
-                download("en_core_web_sm")
+                if load_models:
+                    download("en_core_web_sm")
                 self.nlp = spacy.load('en_core_web_sm')
 
         elif language == "de":
             self.clean_lang = "de"
             self.g2p_lang = "de"
             if use_chinksandchunks_ipb or use_shallow_pos:
-                download("de_core_news_sm")
+                if load_models:
+                    download("de_core_news_sm")
                 self.nlp = spacy.load('de_core_news_sm')
 
         else:
@@ -175,21 +181,27 @@ class TextFrontend:
         # vectorize and get POS
         if self.use_shallow_pos:
             utt = self.tagger(utt)
+        sent_type_dim = 0
         for index, phonemized_token in enumerate(phonemized_tokens):
             for char in phonemized_token:
-                phones_vector.append(self.ipa_to_vector.get(char, self.default_vector))
-                if self.use_shallow_pos or self.use_chinksandchunks_ipb:
-                    tags_vector.append(utt[index].pos_)
-                if self.use_chinksandchunks_ipb:
-                    if len(tags_vector) > 2:
-                        if tags_vector[-2] != 2 and tags_vector[-1] == 2:
-                            phones_vector.append(self.ipa_to_vector["intonation_phrase_boundary"])
-                            if self.use_shallow_pos:
-                                tags_vector.append(utt[index].pos_)
-            if self.use_word_boundaries:
-                phones_vector.append(self.default_vector)
-                if self.use_shallow_pos:
-                    tags_vector.append("SPACE__")
+                if char == "!":
+                    sent_type_dim = 1
+                elif char == "?":
+                    sent_type_dim = 2
+                else:
+                    phones_vector.append(self.ipa_to_vector.get(char, self.default_vector))
+                    if self.use_shallow_pos or self.use_chinksandchunks_ipb:
+                        tags_vector.append(utt[index].pos_)
+                    if self.use_chinksandchunks_ipb:
+                        if len(tags_vector) > 2:
+                            if tags_vector[-2] != 2 and tags_vector[-1] == 2:
+                                phones_vector.append(self.ipa_to_vector["intonation_phrase_boundary"])
+                                if self.use_shallow_pos:
+                                    tags_vector.append(utt[index].pos_)
+                if self.use_word_boundaries:
+                    phones_vector.append(self.default_vector)
+                    if self.use_shallow_pos:
+                        tags_vector.append("SPACE__")
 
         # generate tensors
         if not self.default_vector == 0:
@@ -197,15 +209,21 @@ class TextFrontend:
                 tensors.append(torch.tensor(line))
         else:
             tensors.append(torch.tensor(phones_vector))
+
+        if self.use_sentence_type:
+            tensors.append(torch.tensor([sent_type_dim] * tensors[-1].shape[0]))
+
         if self.use_shallow_pos:
             tags_numeric_vector = []
             for el in tags_vector:
                 tags_numeric_vector.append(self.tag_id_lookup[el])
             tensors.append(torch.tensor(tags_numeric_vector))
+
         if self.use_positional_information:
             for index in range(len(phones_vector)):
                 position_vector.append(round(index / len(phones_vector), 3))
             tensors.append(torch.tensor(position_vector))
+
         if view and self.use_shallow_pos:
             tags = []
             for el in utt:
@@ -217,10 +235,12 @@ class TextFrontend:
 
 
 if __name__ == '__main__':
+    # when running for the first time, you may need to set the 'load_models' parameter to True.
+
     # test an English utterance
     tfr_en = TextFrontend("en")
     print(tfr_en.string_to_tensor("Hello!"))
 
     # test a German utterance
     tfr_de = TextFrontend("de")
-    print(tfr_de.string_to_tensor("Hallo!"))
+    print(tfr_de.string_to_tensor("Hallo?"))
