@@ -73,7 +73,10 @@ class AudioPreprocessor:
         """
 
         loudness = self.meter.integrated_loudness(audio)
-        return pyln.normalize.loudness(audio, loudness, -30.0)
+        loud_normed = pyln.normalize.loudness(audio, loudness, -30.0)
+        peak = numpy.amax(numpy.abs(loud_normed))
+        peak_normed = numpy.divide(loud_normed, peak)
+        return peak_normed
 
     def normalize_audio(self, audio):
         """
