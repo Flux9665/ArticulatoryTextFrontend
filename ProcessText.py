@@ -124,7 +124,7 @@ class TextFrontend:
         elif language == "de":
             self.clean_lang = "de"
             self.g2p_lang = "de"
-            if use_chinksandchunks_ipb or use_shallow_pos:
+            if not use_chinksandchunks_ipb and not use_shallow_pos:
                 if load_models:
                     download("de_core_news_sm")
                 self.nlp = spacy.load('de_core_news_sm')
@@ -135,10 +135,7 @@ class TextFrontend:
             print("Language not supported yet")
             sys.exit()
 
-        self.tokenizer = self.nlp.Defaults.create_tokenizer(self.nlp)
-
         if self.use_shallow_pos:
-            self.tagger = self.nlp.get_pipe("tagger")
             content_word_tags = {"ADJ", "ADV", "INTJ", "NOUN", "PROPN", "VERB"}
             function_word_tags = {"ADP", "AUX", "CCONJ", "DET", "NUM", "PART", "PRON", "SCONJ"}
             other_tags = {"PUNCT", "SYM", "X"}
@@ -155,7 +152,7 @@ class TextFrontend:
         applies the entire pipeline to a text
         """
         # tokenize
-        utt = self.tokenizer(text)
+        utt = self.nlp(text)
 
         # clean unicode errors etc
         cleaned_tokens = []
@@ -185,8 +182,6 @@ class TextFrontend:
         position_vector = []
 
         # vectorize and get POS
-        if self.use_shallow_pos:
-            utt = self.tagger(utt)
         sent_type_dim = 0
         for index, phonemized_token in enumerate(phonemized_tokens):
             for char in phonemized_token:
@@ -221,6 +216,7 @@ class TextFrontend:
 
         if self.use_shallow_pos:
             tags_numeric_vector = []
+            print(tags_vector)
             for el in tags_vector:
                 tags_numeric_vector.append(self.tag_id_lookup[el])
             tensors.append(torch.tensor(tags_numeric_vector))
@@ -244,9 +240,13 @@ if __name__ == '__main__':
     # when running for the first time, you may need to set the 'load_models' parameter to True.
 
     # test an English utterance
-    tfr_en = TextFrontend("en")
+    tfr_en = TextFrontend(language="en", use_panphon_vectors=False, use_shallow_pos=False, use_sentence_type=False,
+                          use_positional_information=False, use_word_boundaries=False, use_chinksandchunks_ipb=False,
+                          load_models=True)
     print(tfr_en.string_to_tensor("Hello!"))
 
     # test a German utterance
-    tfr_de = TextFrontend("de")
-    print(tfr_de.string_to_tensor("Hallo?"))
+    tfr_de = TextFrontend(language="de", use_panphon_vectors=True, use_shallow_pos=True, use_sentence_type=True,
+                          use_positional_information=True, use_word_boundaries=True, use_chinksandchunks_ipb=True,
+                          load_models=True)
+    print(tfr_de.string_to_tensor("Hallo, ich schreiben hie reinen längeren Satz, oder tue ich das?"))
