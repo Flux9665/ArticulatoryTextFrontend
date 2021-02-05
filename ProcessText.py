@@ -7,6 +7,8 @@ import spacy
 import torch
 from cleantext import clean
 from spacy.cli import download
+from spacy.lang.de import German
+from spacy.lang.en import English
 
 """
 Explanation of the Tensor dimensions:
@@ -116,6 +118,8 @@ class TextFrontend:
                 if load_models:
                     download("en_core_web_sm")
                 self.nlp = spacy.load('en_core_web_sm')
+            else:
+                self.nlp = English()
 
         elif language == "de":
             self.clean_lang = "de"
@@ -124,6 +128,8 @@ class TextFrontend:
                 if load_models:
                     download("de_core_news_sm")
                 self.nlp = spacy.load('de_core_news_sm')
+            else:
+                self.nlp = German()
 
         else:
             print("Language not supported yet")
