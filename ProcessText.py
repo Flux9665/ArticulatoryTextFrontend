@@ -204,10 +204,10 @@ class TextFrontend:
                                 phones_vector.append(self.ipa_to_vector["intonation_phrase_boundary"])
                                 if self.use_shallow_pos:
                                     tags_vector.append(utt[index].pos_)
-                if self.use_word_boundaries:
-                    phones_vector.append(self.default_vector)
-                    if self.use_shallow_pos:
-                        tags_vector.append("SPACE__")
+            if self.use_word_boundaries:
+                phones_vector.append(self.default_vector)
+                if self.use_shallow_pos:
+                    tags_vector.append("SPACE__")
 
         # generate tensors
         if not self.default_vector == 0:
