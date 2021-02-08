@@ -211,7 +211,7 @@ class TextFrontend:
                         tags_vector.append("SPACE__")
             if self.use_explicit_eos:
                 if not index < len(phonemized_tokens) - 1:
-                    phones_vector.append("end_of_input")
+                    phones_vector.append(self.ipa_to_vector["end_of_input"])
                     if self.use_shallow_pos:
                         tags_vector.append("SPACE__")
 
@@ -268,3 +268,13 @@ if __name__ == '__main__':
                           use_chinksandchunks_ipb=True,
                           use_explicit_eos=True)
     print(tfr_de.string_to_tensor("Hallo!"))
+
+    tfr_autoreg = TextFrontend(language="en",
+                               use_panphon_vectors=False,
+                               use_shallow_pos=False,
+                               use_sentence_type=False,
+                               use_positional_information=False,
+                               use_word_boundaries=False,
+                               use_chinksandchunks_ipb=True,
+                               use_explicit_eos=True)
+    print(tfr_autoreg.string_to_tensor("Hello there!"))
