@@ -93,9 +93,9 @@ This repository can be cited as follows:
 ```
 @misc{flux2021preprocessing,
   author = {Florian Lux},
-  title = {Preprocessing-For-Text-to-Speech},
+  title = {PreprocessingForTTS},
   year = {2021},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/Flux9665/Preprocessing-For-Text-to-Speech}}
+  howpublished = {\url{https://github.com/Flux9665/PreprocessingForTTS}}
 }
 ```
