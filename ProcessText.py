@@ -99,9 +99,11 @@ class TextFrontend:
         # list taken and modified from https://github.com/dmort27/panphon
         self.ipa_to_vector = defaultdict()
         if use_panphon_vectors:
-            self.default_vector = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            self.default_vector = [131, 131, 131, 131, 131, 131, 131, 131, 131, 131,
+                                   131, 131, 131, 131, 131, 131, 131, 131, 131, 131,
+                                   131, 131, 131, 131, 131]
         else:
-            self.default_vector = 0
+            self.default_vector = 131
         with open("ipa_vector_lookup.csv", encoding='utf8') as f:
             features = f.read()
         features_list = features.split("\n")
