@@ -82,6 +82,7 @@ class TextFrontend:
                  use_positional_information=False,
                  use_word_boundaries=False,
                  use_sentence_type=True,
+                 use_explicit_eos=True
                  ):
         """
         Mostly loading the right spacy
@@ -93,6 +94,7 @@ class TextFrontend:
         self.use_positional_information = use_positional_information
         self.use_word_boundaries = use_word_boundaries
         self.use_sentence_type = use_sentence_type
+        self.use_explicit_eos = use_explicit_eos
 
         # list taken and modified from https://github.com/dmort27/panphon
         self.ipa_to_vector = defaultdict()
@@ -203,9 +205,15 @@ class TextFrontend:
                                 if self.use_shallow_pos:
                                     tags_vector.append(utt[index].pos_)
             if self.use_word_boundaries:
-                phones_vector.append(self.default_vector)
-                if self.use_shallow_pos:
-                    tags_vector.append("SPACE__")
+                if index < len(phonemized_tokens) - 1:
+                    phones_vector.append(self.default_vector)
+                    if self.use_shallow_pos:
+                        tags_vector.append("SPACE__")
+            if self.use_explicit_eos:
+                if not index < len(phonemized_tokens) - 1:
+                    phones_vector.append("end_of_input")
+                    if self.use_shallow_pos:
+                        tags_vector.append("SPACE__")
 
         # generate tensors
         if not self.default_vector == 0:
@@ -246,7 +254,8 @@ if __name__ == '__main__':
                           use_sentence_type=False,
                           use_positional_information=False,
                           use_word_boundaries=False,
-                          use_chinksandchunks_ipb=False)
+                          use_chinksandchunks_ipb=False,
+                          use_explicit_eos=False)
     print(tfr_en.string_to_tensor("Hello!"))
 
     # test a German utterance
@@ -256,5 +265,6 @@ if __name__ == '__main__':
                           use_sentence_type=True,
                           use_positional_information=True,
                           use_word_boundaries=True,
-                          use_chinksandchunks_ipb=True)
+                          use_chinksandchunks_ipb=True,
+                          use_explicit_eos=True)
     print(tfr_de.string_to_tensor("Hallo!"))
