@@ -1,6 +1,7 @@
 # PreprocesingForTTS
 
-Preprocessing utillity for text and audio to be used in Text-to-Speech. Can transform text into a phoneme ID tensor with prosodic cues, can clean and normalize a wav, can produce an MFCC-bank spectrogram from a wave.
+Preprocessing utillity for text and audio to be used in Text-to-Speech. Can transform text into a phoneme ID tensor or a
+articulatory vector representation tensor, can clean and normalize a wav, can produce a mel filterbank from a wave.
 
 # Installation
 
@@ -35,19 +36,6 @@ The articulation vector lookup is based on PanPhon, it has been modified however
 The phonemizer can be found at https://github.com/bootphon/phonemizer and is using espeak in the backend.
 
 The text cleaner can be found at https://github.com/jfilter/clean-text.
-
-POS tagging for intonation phrase boundary detection is done using Spacy
-
-```
-@software{spacy,
-  author = {Honnibal, Matthew and Montani, Ines and Van Landeghem, Sofie and Boyd, Adriane},
-  title = {{spaCy: Industrial-strength Natural Language Processing in Python}},
-  year = 2020,
-  publisher = {Zenodo},
-  doi = {10.5281/zenodo.1212303},
-  url = {https://doi.org/10.5281/zenodo.1212303}
-}
-```
 
 ## Audio Processing
 
