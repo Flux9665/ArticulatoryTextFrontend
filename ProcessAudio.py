@@ -62,14 +62,18 @@ class AudioPreprocessor:
         """
         return self.mu_encode(audio)
 
-    def cut_silence_from_beginning(self, audio):
+    def cut_silence_from_beginning_and_end(self, audio):
         """
         applies cepstral voice activity
         detection and noise reduction to
-        cut silence from the beginning of
-        a recording
+        cut silence from the beginning
+        and end of a recording
         """
-        return self.vad(torch.Tensor(audio))
+        no_silence_front = self.vad(torch.Tensor(audio))
+        reversed_audio = torch.flip(no_silence_front, (0,))
+        no_silence_back = self.vad(torch.Tensor(reversed_audio))
+        unreversed_audio = torch.flip(no_silence_back, (0,))
+        return unreversed_audio
 
     def to_mono(self, x):
         """
@@ -117,7 +121,7 @@ class AudioPreprocessor:
         """
         audio = self.to_mono(audio)
         audio = self.normalize_loudness(audio)
-        audio = self.cut_silence_from_beginning(audio)
+        audio = self.cut_silence_from_beginning_and_end(audio)
         audio = self.resample(audio)
         return audio
 
