@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore")
 
 
 class AudioPreprocessor:
-    def __init__(self, input_sr, output_sr=None, melspec_buckets=80, hop_length=256, n_fft=1024):
+    def __init__(self, input_sr, output_sr=None, melspec_buckets=80, hop_length=256, n_fft=1024, cut_silence=False):
         """
         The parameters are by default set up to do well
         on a 16kHz signal. A different frequency may
@@ -24,6 +24,7 @@ class AudioPreprocessor:
         doubling frequency --> doubling hop_length and
         doubling n_fft)
         """
+        self.cut_silence = cut_silence
         self.sr = input_sr
         self.new_sr = output_sr
         self.hop_length = hop_length
@@ -34,7 +35,7 @@ class AudioPreprocessor:
         self.mu_decode = MuLawDecoding()
         self.meter = pyln.Meter(input_sr)
         self.final_sr = input_sr
-        if output_sr is not None:
+        if output_sr is not None and output_sr != input_sr:
             self.resample = Resample(orig_freq=input_sr, new_freq=output_sr)
             self.final_sr = output_sr
         else:
@@ -121,7 +122,8 @@ class AudioPreprocessor:
         """
         audio = self.to_mono(audio)
         audio = self.normalize_loudness(audio)
-        audio = self.cut_silence_from_beginning_and_end(audio)
+        if self.cut_silence:
+            audio = self.cut_silence_from_beginning_and_end(audio)
         audio = self.resample(audio)
         return audio
 
@@ -162,6 +164,8 @@ class AudioPreprocessor:
         if normalize:
             return self.mel_spec_new_sr(self.normalize_audio(audio))
         else:
+            if isinstance(audio, torch.Tensor):
+                return self.mel_spec_orig_sr(audio)
             return self.mel_spec_orig_sr(torch.Tensor(audio))
 
 
@@ -170,7 +174,7 @@ if __name__ == '__main__':
     wave, fs = sf.read("test_audio/test.wav")
 
     # create audio preprocessor object
-    ap = AudioPreprocessor(input_sr=fs, output_sr=16000)
+    ap = AudioPreprocessor(input_sr=fs, output_sr=16000, cut_silence=True)
 
     # visualize a before and after of the cleaning
     ap.visualize_cleaning(wave)
