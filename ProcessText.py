@@ -13,7 +13,7 @@ class TextFrontend:
                  use_panphon_vectors=True,
                  use_sentence_type=True,
                  use_word_boundaries=False,
-                 use_explicit_eos=True):
+                 use_explicit_eos=False):
         """
         Mostly preparing ID lookups
         """
@@ -31,7 +31,7 @@ class TextFrontend:
                                    130, 130, 130, 130, 130]
         else:
             self.default_vector = 130
-        with open("ipa_vector_lookup.csv", encoding='utf8') as f:
+        with open("PreprocessingForTTS/ipa_vector_lookup.csv", encoding='utf8') as f:
             features = f.read()
         features_list = features.split("\n")
         for index in range(1, len(features_list)):
@@ -72,7 +72,7 @@ class TextFrontend:
                                       preserve_punctuation=True,
                                       strip=True,
                                       with_stress=False).replace(";", ",").replace(":", ",").replace('"', ",").replace(
-            "--", ",").replace("\n", " ").replace("\t", " ").replace("  ", " ")
+            "--", ",").replace("\n", " ").replace("\t", " ").replace("  ", " ").replace("!", ".").replace("?", ".")
         if view:
             print("Phonemes: \n{}\n".format(phones))
 
