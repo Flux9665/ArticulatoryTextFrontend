@@ -63,6 +63,32 @@ class AudioPreprocessor:
         """
         return self.mu_encode(audio)
 
+    # def normalize_silences(self, audio):
+    #    """
+    #    splits audio on each silence and
+    #    puts the splits back together with
+    #    a constant amount of silence in
+    #    between
+    #    """
+    #    # ok I know this is extremely inefficient, but it's the only thing that works.
+    #    sf.write("__temp.wav", audio, self.sr)
+    #    pydub_audio = AudioSegment.from_file("__temp.wav", format='wav')
+    #    normalized_silence = AudioSegment.silent(duration=500, frame_rate=self.sr)
+    #    audio_segments = silence.split_on_silence(pydub_audio, min_silence_len=300, keep_silence=100, silence_thresh=-35)
+    #    collection = audio_segments[0]
+    #    for i, _ in enumerate(audio_segments):
+    #        if len(audio_segments) > i + 1:
+    #            collection = collection + normalized_silence + audio_segments[i + 1]
+    #    collection.export("__temp.wav", format='wav')
+    #    audio, _ = sf.read("__temp.wav")
+    #    import os
+    #    os.remove("__temp.wav")
+    #    return audio
+    #
+    #    Taken out because even though it worked as intended,
+    #    the silence threshold was inconsistent. This would
+    #    likely mess up when used blindly on a large dataset.
+
     def cut_silence_from_beginning_and_end(self, audio):
         """
         applies cepstral voice activity

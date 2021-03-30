@@ -3,7 +3,6 @@ numpy
 torchaudio
 soundfile
 pyloudnorm
-spacy
 phonemizer
 clean-text
 unidecode
