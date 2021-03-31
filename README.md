@@ -3,12 +3,12 @@
 Preprocessing utillity for text and audio to be used in Text-to-Speech. Can transform text into a phoneme ID tensor or a
 articulatory vector representation tensor, can clean and normalize a wav, can produce a mel filterbank from a wave. There are many settings that can (and should) be tweaked.
 
-###Example: Text-to-Vector
+### Example: Text-to-Vector
 
 | "Hello world, this is a test!"| həloʊwɜld~ðɪsɪzɐtɛst!| [ 88, 113,  93, 105, 123,  90, 117,  93,  29,  12,  54, 120,  49, 120, 52, 124,  32, 118,  49,  32,  10] |
 | -------------|-----------|---------------------| 
 
-###Example: Wave-to-Filterbank
+### Example: Wave-to-Filterbank
 
 ![normalization_showcase.png](normalization_showcase.png)
 
