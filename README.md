@@ -1,9 +1,20 @@
-# PreprocesingForTTS
+## PreprocesingForTTS
 
 Preprocessing utillity for text and audio to be used in Text-to-Speech. Can transform text into a phoneme ID tensor or a
-articulatory vector representation tensor, can clean and normalize a wav, can produce a mel filterbank from a wave.
+articulatory vector representation tensor, can clean and normalize a wav, can produce a mel filterbank from a wave. There are many settings that can (and should) be tweaked.
 
-# Installation
+###Example: Text-to-Vector
+
+| "Hello world, this is a test!"| həloʊwɜld~ðɪsɪzɐtɛst!| [ 88, 113,  93, 105, 123,  90, 117,  93,  29,  12,  54, 120,  49, 120, 52, 124,  32, 118,  49,  32,  10] |
+| -------------|-----------|---------------------| 
+
+###Example: Wave-to-Filterbank
+
+![normalization_showcase.png](normalization_showcase.png)
+
+
+
+## Installation
 
 Just doing _pip install -r requirements.txt_ should be sufficient, but in case you want to do it manually, here are special cases:
 
@@ -12,9 +23,9 @@ Just doing _pip install -r requirements.txt_ should be sufficient, but in case y
 - To install torchaudio using conda you have to specify the host channel, which is pytorch. Download may be very slow due to their hosting.  
 _conda install -c pytorch torchaudio_
 
-# Sources 
+## Sources 
 
-## Text Processing
+### Text Processing
 
 The articulation vector lookup is based on PanPhon, it has been modified however to accommodate suprasegmental features and removed some complex phonemes, since the phonemizer used here doesn't produce the complex phonemes.
 ```
@@ -37,7 +48,7 @@ The phonemizer can be found at https://github.com/bootphon/phonemizer and is usi
 
 The text cleaner can be found at https://github.com/jfilter/clean-text.
 
-## Audio Processing
+### Audio Processing
 
 Some of the audio processing is done using Librosa:
 
@@ -74,9 +85,9 @@ url = {http://papers.neurips.cc/paper/9015-pytorch-an-imperative-style-high-perf
 }
 ```
 
-## This Repository
+### This Repository
 
-This repository can be cited as follows:
+If you want to refer to this repo, you can use the following:
 
 ```
 @misc{flux2021preprocessing,

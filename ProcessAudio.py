@@ -161,19 +161,22 @@ class AudioPreprocessor:
         and then displays Mel Spectrogram of the
         cleaned version.
         """
-        fig, ax = plt.subplots(nrows=2, ncols=1)
+        fig, ax = plt.subplots(nrows=2, ncols=2, gridspec_kw={'width_ratios': [4, 1]})
         unclean_audio_mono = self.to_mono(unclean_audio)
         unclean_spec = self.audio_to_mel_spec_tensor(unclean_audio_mono, normalize=False).numpy()
         clean_spec = self.audio_to_mel_spec_tensor(unclean_audio_mono, normalize=True).numpy()
-        lbd.specshow(unclean_spec, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[0], x_axis='time')
-        ax[0].set(title='Uncleaned Audio')
-        ax[0].label_outer()
+        lbd.specshow(unclean_spec, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[1][0], x_axis='time')
+        ax[0][0].set(title='No Normalization')
+        ax[0][0].label_outer()
         if self.new_sr is not None:
-            lbd.specshow(clean_spec, sr=self.new_sr, cmap='GnBu', y_axis='mel', ax=ax[1], x_axis='time')
+            lbd.specshow(clean_spec, sr=self.new_sr, cmap='GnBu', y_axis='mel', ax=ax[1][1], x_axis='time')
         else:
-            lbd.specshow(clean_spec, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[1], x_axis='time')
-        ax[1].set(title='Cleaned Audio')
-        ax[1].label_outer()
+            lbd.specshow(clean_spec, sr=self.sr, cmap='GnBu', y_axis=None, ax=ax[1][1], x_axis='time')
+        ax[0][1].set(title='With Normalization')
+        ax[0][1].label_outer()
+        ax[0][0].plot(unclean_audio_mono)
+        ax[0][1].plot(self.normalize_audio(unclean_audio_mono))
+
         plt.show()
 
     def audio_to_wave_tensor(self, audio, normalize=True, mulaw=False):
