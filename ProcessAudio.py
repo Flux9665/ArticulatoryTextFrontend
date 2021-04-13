@@ -7,15 +7,17 @@ import matplotlib.pyplot as plt
 import numpy
 import numpy as np
 import pyloudnorm as pyln
-import soundfile as sf
 import torch
-from torchaudio.transforms import MuLawEncoding, MuLawDecoding, Resample
+from torchaudio.transforms import MuLawDecoding
+from torchaudio.transforms import MuLawEncoding
+from torchaudio.transforms import Resample
 from torchaudio.transforms import Vad as VoiceActivityDetection
 
 warnings.filterwarnings("ignore")
 
 
 class AudioPreprocessor:
+
     def __init__(self, input_sr, output_sr=None, melspec_buckets=80, hop_length=256, n_fft=1024, cut_silence=False):
         """
         The parameters are by default set up to do well
@@ -30,7 +32,7 @@ class AudioPreprocessor:
         self.hop_length = hop_length
         self.n_fft = n_fft
         self.mel_buckets = melspec_buckets
-        self.vad = VoiceActivityDetection(sample_rate=input_sr)
+        self.vad = VoiceActivityDetection(sample_rate=input_sr)  # This needs heavy tweaking, depending of the data
         self.mu_encode = MuLawEncoding()
         self.mu_decode = MuLawDecoding()
         self.meter = pyln.Meter(input_sr)
@@ -62,32 +64,6 @@ class AudioPreprocessor:
         saving or listening to the audio.
         """
         return self.mu_encode(audio)
-
-    # def normalize_silences(self, audio):
-    #    """
-    #    splits audio on each silence and
-    #    puts the splits back together with
-    #    a constant amount of silence in
-    #    between
-    #    """
-    #    # ok I know this is extremely inefficient, but it's the only thing that works.
-    #    sf.write("__temp.wav", audio, self.sr)
-    #    pydub_audio = AudioSegment.from_file("__temp.wav", format='wav')
-    #    normalized_silence = AudioSegment.silent(duration=500, frame_rate=self.sr)
-    #    audio_segments = silence.split_on_silence(pydub_audio, min_silence_len=300, keep_silence=100, silence_thresh=-35)
-    #    collection = audio_segments[0]
-    #    for i, _ in enumerate(audio_segments):
-    #        if len(audio_segments) > i + 1:
-    #            collection = collection + normalized_silence + audio_segments[i + 1]
-    #    collection.export("__temp.wav", format='wav')
-    #    audio, _ = sf.read("__temp.wav")
-    #    import os
-    #    os.remove("__temp.wav")
-    #    return audio
-    #
-    #    Taken out because even though it worked as intended,
-    #    the silence threshold was inconsistent. This would
-    #    likely mess up when used blindly on a large dataset.
 
     def cut_silence_from_beginning_and_end(self, audio):
         """
@@ -131,8 +107,7 @@ class AudioPreprocessor:
         """
         audio = audio.numpy()
         # get amplitude spectrogram
-        x_stft = librosa.stft(audio, n_fft=self.n_fft, hop_length=self.hop_length,
-                              win_length=None, window="hann", pad_mode="reflect")
+        x_stft = librosa.stft(audio, n_fft=self.n_fft, hop_length=self.hop_length, win_length=None, window="hann", pad_mode="reflect")
         spc = np.abs(x_stft).T
         # get mel basis
         fmin = 0 if fmin is None else fmin
@@ -161,22 +136,19 @@ class AudioPreprocessor:
         and then displays Mel Spectrogram of the
         cleaned version.
         """
-        fig, ax = plt.subplots(nrows=2, ncols=2, gridspec_kw={'width_ratios': [4, 1]})
+        fig, ax = plt.subplots(nrows=2, ncols=1)
         unclean_audio_mono = self.to_mono(unclean_audio)
         unclean_spec = self.audio_to_mel_spec_tensor(unclean_audio_mono, normalize=False).numpy()
         clean_spec = self.audio_to_mel_spec_tensor(unclean_audio_mono, normalize=True).numpy()
-        lbd.specshow(unclean_spec, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[1][0], x_axis='time')
-        ax[0][0].set(title='No Normalization')
-        ax[0][0].label_outer()
+        lbd.specshow(unclean_spec, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[0], x_axis='time')
+        ax[0].set(title='Uncleaned Audio')
+        ax[0].label_outer()
         if self.new_sr is not None:
-            lbd.specshow(clean_spec, sr=self.new_sr, cmap='GnBu', y_axis='mel', ax=ax[1][1], x_axis='time')
+            lbd.specshow(clean_spec, sr=self.new_sr, cmap='GnBu', y_axis='mel', ax=ax[1], x_axis='time')
         else:
-            lbd.specshow(clean_spec, sr=self.sr, cmap='GnBu', y_axis=None, ax=ax[1][1], x_axis='time')
-        ax[0][1].set(title='With Normalization')
-        ax[0][1].label_outer()
-        ax[0][0].plot(unclean_audio_mono)
-        ax[0][1].plot(self.normalize_audio(unclean_audio_mono))
-
+            lbd.specshow(clean_spec, sr=self.sr, cmap='GnBu', y_axis='mel', ax=ax[1], x_axis='time')
+        ax[1].set(title='Cleaned Audio')
+        ax[1].label_outer()
         plt.show()
 
     def audio_to_wave_tensor(self, audio, normalize=True, mulaw=False):
@@ -201,6 +173,8 @@ class AudioPreprocessor:
 
 
 if __name__ == '__main__':
+    import soundfile as sf
+
     # load audio into numpy array
     wave, fs = sf.read("test_audio/test.wav")
 
