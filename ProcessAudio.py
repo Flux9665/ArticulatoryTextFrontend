@@ -170,24 +170,3 @@ class AudioPreprocessor:
             if isinstance(audio, torch.Tensor):
                 return self.mel_spec_orig_sr(audio)
             return self.mel_spec_orig_sr(torch.Tensor(audio))
-
-
-if __name__ == '__main__':
-    import soundfile as sf
-
-    # load audio into numpy array
-    wave, fs = sf.read("test_audio/test.wav")
-
-    # create audio preprocessor object
-    ap = AudioPreprocessor(input_sr=fs, output_sr=16000, cut_silence=True)
-
-    # visualize a before and after of the cleaning
-    ap.visualize_cleaning(wave)
-
-    # write a cleaned version of the audio to listen to
-    sf.write("test_audio/test_cleaned.wav", ap.normalize_audio(wave), ap.final_sr)
-
-    # look at tensors of a wave representation and a mel spectrogram representation
-    print("\n\nWave as Tensor (8 bit integer values, dtype=int64): \n{}".format(
-        ap.audio_to_wave_tensor(wave, mulaw=True)))
-    print("\n\nMelSpec as Tensor (16 bit float values, dtype=float32): \n{}".format(ap.audio_to_mel_spec_tensor(wave)))

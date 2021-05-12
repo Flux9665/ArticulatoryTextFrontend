@@ -27,23 +27,6 @@ _conda install -c pytorch torchaudio_
 
 ### Text Processing
 
-The articulation vector lookup is based on PanPhon, it has been modified however to accommodate suprasegmental features and removed some complex phonemes, since the phonemizer used here doesn't produce the complex phonemes.
-```
-@inproceedings{Mortensen-et-al:2016,
-  author    = {David R. Mortensen and
-               Patrick Littell and
-               Akash Bharadwaj and
-               Kartik Goyal and
-               Chris Dyer and
-               Lori S. Levin},
-  title     = {PanPhon: {A} Resource for Mapping {IPA} Segments to Articulatory Feature Vectors},
-  booktitle = {Proceedings of {COLING} 2016, the 26th International Conference on Computational Linguistics: Technical Papers},
-  pages     = {3475--3484},
-  publisher = {{ACL}},
-  year      = {2016}
-}
-```
-
 The phonemizer can be found at https://github.com/bootphon/phonemizer and is using espeak in the backend.
 
 The text cleaner can be found at https://github.com/jfilter/clean-text.
@@ -70,7 +53,7 @@ Audio processing also uses pyloudnorm:
 Christian Steinmetz, csteinmetz1/pyloudnorm: 0.1.0 (Version v0.1.0), Zenodo, November 2019
 ```
 
-And a lot of the audio processing is done using the torchaudio module of pytorch:
+And a lot of the audio processing is done using the torchaudio module of PyTorch:
 
 ```
 @incollection{NEURIPS2019_9015,
