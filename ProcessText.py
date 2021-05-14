@@ -32,18 +32,19 @@ class TextFrontend:
         self.use_stress = use_lexical_stress
         if allow_unknown:
             self.ipa_to_vector = defaultdict()
-            self.default_vector = 122
+            self.default_vector = 165
         else:
             self.ipa_to_vector = dict()
         with open(path_to_phoneme_list, "r", encoding='utf8') as f:
             phonemes = f.read()
+            # using https://github.com/espeak-ng/espeak-ng/blob/master/docs/phonemes.md
         phoneme_list = phonemes.split("\n")
         for index in range(1, len(phoneme_list)):
             self.ipa_to_vector[phoneme_list[index]] = index
             # note: Index 0 is unused, so it can be used for padding as is convention.
             #       Index 1 is reserved for end_of_utterance
-            #       Index 12 is used for pauses (heuristically)
-            #       Index 122 is used for unknown characters
+            #       Index 2 is reserved for begin of sentence token
+            #       Index 13 is used for pauses (heuristically)
 
         # The point of having the phonemes in a separate file is to ensure reproducibility.
         # The line of the phoneme is the ID of the phoneme, so you can have multiple such
@@ -110,8 +111,10 @@ class TextFrontend:
             if self.allow_unknown:
                 phones_vector.append(self.ipa_to_vector.get(char, self.default_vector))
             else:
-                if char in self.ipa_to_vector.keys():
+                try:
                     phones_vector.append(self.ipa_to_vector[char])
+                except KeyError:
+                    print("unknown phoneme: {}".format(char))
         if self.use_explicit_eos:
             phones_vector.append(self.ipa_to_vector["end_of_input"])
         return torch.LongTensor(phones_vector).unsqueeze(0)
