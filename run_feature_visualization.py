@@ -34,9 +34,15 @@ def visualize_one_hot_encoded_sequence(tensor, sentence, col_labels, cmap='BuGn'
     if col_labels:
         plt.xticks(np.arange(tensor.shape[1]), col_labels, rotation=0)
 
-    plt.grid(False)
     plt.xlabel('Phones')
     plt.ylabel('Features')
+
+    plt.xticks(np.arange(-0.5, tensor.shape[1], 1), minor=True)
+    plt.yticks(np.arange(-0.5, tensor.shape[0], 1), minor=True)
+
+    # Turn on the grid for minor ticks (i.e., between the cells)
+    plt.grid(which='minor', color='darkgrey', linestyle='-', linewidth=1)
+    plt.tick_params(which='minor', size=0)  # Hide minor tick marks
 
     # Display the heatmap
     plt.title(f"»{sentence}«")
